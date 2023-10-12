@@ -16,7 +16,7 @@ import java.io.IOException;
  */
 public class BuilderApi {
 
-    private static final Logger LOG = LoggerFactory.getLogger(BuilderApi.class):
+    private static final Logger LOG = LoggerFactory.getLogger(BuilderApi.class);
 
     OkHttpClient client;
     String endpoint;
@@ -39,7 +39,6 @@ public class BuilderApi {
         try (Response response = client.newCall(request).execute()) {
             if (!response.isSuccessful()) throw new IOException("Block Request failed: " + response);
             String jsonString = response.body().string();
-
         }
     }
 }

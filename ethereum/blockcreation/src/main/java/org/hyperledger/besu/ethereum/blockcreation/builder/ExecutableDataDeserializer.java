@@ -6,8 +6,10 @@ import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import org.apache.tuweni.units.bigints.UInt64;
-import org.apache.tuweni.units.bigints.UInt64Value;
 import org.hyperledger.besu.datatypes.Hash;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class ExecutableDataDeserializer extends StdDeserializer<ExecutableData> {
 
@@ -28,7 +30,7 @@ public class ExecutableDataDeserializer extends StdDeserializer<ExecutableData> 
         executableData.parentHash = Hash.fromHexString(node.get("parentHash").asText());
         executableData.feeRecipient = Hash.fromHexString(node.get("feeRecipient").asText());
         executableData.stateRoot = Hash.fromHexString(node.get("stateRoot").asText());
-        executableData.receiptsRoot = Hash.fromHexString(node.get("receiptsRoot").asText()):
+        executableData.receiptsRoot = Hash.fromHexString(node.get("receiptsRoot").asText());
         executableData.logsBloom = node.get("logsBloom").binaryValue();
         executableData.prevRandao = UInt64.valueOf(node.get("prevRandao").asLong());
         executableData.number = UInt64.valueOf(node.get("number").asLong());
@@ -46,6 +48,18 @@ public class ExecutableDataDeserializer extends StdDeserializer<ExecutableData> 
         }
 
         executableData.transactions = transactions;
-        executableData.blobGasUsed = node.get
+
+        List<Withdrawal> withdrawalList = new ArrayList<>();
+        codec.readValues(parser, Withdrawal.class).forEachRemaining(withdrawalList::add);
+
+        executableData.withdrawals = new Withdrawal[withdrawalList.size()];
+
+        for (int i =0; i < node.get("withdrawals").size(); i++) {
+            executableData.withdrawals[i] = withdrawalList.get(i);
+        }
+
+        executableData.blobGasUsed = UInt64.valueOf(node.get("blobGasUsed").bigIntegerValue());
+        executableData.excessBlobGas = UInt64.valueOf(node.get("excessBlobGas").bigIntegerValue());
+        return executableData;
     }
 }

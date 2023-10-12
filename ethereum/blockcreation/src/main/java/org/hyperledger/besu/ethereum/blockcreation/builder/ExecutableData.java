@@ -3,7 +3,6 @@ package org.hyperledger.besu.ethereum.blockcreation.builder;
 import org.apache.tuweni.units.bigints.UInt64;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
-import org.hyperledger.besu.plugin.data.Withdrawal;
 import org.web3j.abi.datatypes.generated.Uint64;
 
 import java.math.BigInteger;
