@@ -193,7 +193,7 @@ public class CliqueBlockCreator extends AbstractBlockCreator {
         // of the miner executors, fetched asynchronously and reported via observers. This is a dirty hack for quick
         // demo
 
-        // fetchBlock() has 1 second timeout.
+        // fetchBlock() has max 1 second timeout.
         return fetchBlock().orElseGet(() -> createBlock(
                 maybeTransactions,
                 maybeOmmers,
