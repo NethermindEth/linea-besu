@@ -1,32 +1,31 @@
 package org.hyperledger.besu.ethereum.blockcreation.builder;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.units.bigints.UInt64;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
-import org.web3j.abi.datatypes.generated.Uint64;
 
 import java.math.BigInteger;
 
 /**
  * Executable data format for building blocks from payload received from external block builders.
  */
+@JsonDeserialize(using = ExecutableDataDeserializer.class)
 public class ExecutableData {
     Hash parentHash;
-    Hash feeRecipient;
+    Address feeRecipient;
     Hash stateRoot;
     Hash receiptsRoot;
-    byte[] logsBloom;
-    UInt64 prevRandao;
+    Bytes logsBloom;
+    Hash prevRandao;
     UInt64 number;
     UInt64 gasLimit;
     UInt64 gasUsed;
     UInt64 timestamp;
-    byte[] extraData;
+    Bytes extraData;
     BigInteger baseFeePerGas;
     Hash blockHash;
-    byte[][] transactions;
-    Withdrawal[] withdrawals;
-    UInt64 blobGasUsed;
-    UInt64 excessBlobGas;
+    Bytes[] transactions;
 }
 

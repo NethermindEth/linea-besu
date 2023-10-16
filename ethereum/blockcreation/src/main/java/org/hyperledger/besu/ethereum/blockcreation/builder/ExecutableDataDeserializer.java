@@ -5,9 +5,12 @@ import com.fasterxml.jackson.core.ObjectCodec;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
+import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.units.bigints.UInt64;
+import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,49 +20,37 @@ public class ExecutableDataDeserializer extends StdDeserializer<ExecutableData> 
         this(null);
     }
 
-    public ExecutableDataDeserializer(Class<?> vc) {
+    public ExecutableDataDeserializer(final Class<?> vc) {
         super(vc);
     }
 
     @Override
-    public ExecutableData deserialize(JsonParser parser, DeserializationContext deserializer) throws java.io.IOException{
+    public ExecutableData deserialize(final JsonParser parser, final DeserializationContext deserializer) throws java.io.IOException{
         ExecutableData executableData = new ExecutableData();
         ObjectCodec codec = parser.getCodec();
         JsonNode node = codec.readTree(parser);
 
         executableData.parentHash = Hash.fromHexString(node.get("parentHash").asText());
-        executableData.feeRecipient = Hash.fromHexString(node.get("feeRecipient").asText());
+        executableData.feeRecipient = Address.fromHexString(node.get("feeRecipient").asText());
         executableData.stateRoot = Hash.fromHexString(node.get("stateRoot").asText());
         executableData.receiptsRoot = Hash.fromHexString(node.get("receiptsRoot").asText());
-        executableData.logsBloom = node.get("logsBloom").binaryValue();
-        executableData.prevRandao = UInt64.valueOf(node.get("prevRandao").asLong());
+        executableData.logsBloom = Bytes.fromHexString(node.get("logsBloom").asText());
+        executableData.prevRandao = Hash.fromHexString(node.get("prevRandao").asText());
         executableData.number = UInt64.valueOf(node.get("number").asLong());
         executableData.gasLimit = UInt64.valueOf(node.get("gasLimit").asLong());
         executableData.gasUsed = UInt64.valueOf(node.get("gasUsed").asLong());
         executableData.timestamp = UInt64.valueOf(node.get("timestamp").asLong());
-        executableData.extraData = node.get("extraData").binaryValue();
-        executableData.baseFeePerGas = node.get("baseFeePerGas").bigIntegerValue();
+        executableData.extraData = Bytes.fromHexString(node.get("extraData").asText());
+        executableData.baseFeePerGas = new BigInteger(node.get("baseFeePerGas").asText());
         executableData.blockHash = Hash.fromHexString(node.get("blockHash").asText());
 
-        byte[][] transactions = new byte[node.get("transactions").size()][];
+        Bytes[] transactions = new Bytes[node.get("transactions").size()];
 
         for (int i = 0; i < node.get("transactions").size(); i++) {
-            transactions[i] = node.get("transactions").get(i).binaryValue();
+            transactions[i] = Bytes.fromHexString(node.get("transactions").get(i).asText());
         }
 
         executableData.transactions = transactions;
-
-        List<Withdrawal> withdrawalList = new ArrayList<>();
-        codec.readValues(parser, Withdrawal.class).forEachRemaining(withdrawalList::add);
-
-        executableData.withdrawals = new Withdrawal[withdrawalList.size()];
-
-        for (int i =0; i < node.get("withdrawals").size(); i++) {
-            executableData.withdrawals[i] = withdrawalList.get(i);
-        }
-
-        executableData.blobGasUsed = UInt64.valueOf(node.get("blobGasUsed").bigIntegerValue());
-        executableData.excessBlobGas = UInt64.valueOf(node.get("excessBlobGas").bigIntegerValue());
         return executableData;
     }
 }

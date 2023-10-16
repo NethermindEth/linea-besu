@@ -23,9 +23,9 @@ import java.util.function.Supplier;
 public abstract class BuilderBlockCreator extends AbstractBlockCreator {
 
     protected BuilderApi api;
-    private BLSPublicKey publicKey;
-
-    private final AtomicBoolean isCancelled = new AtomicBoolean(false);
+//    private BLSPublicKey publicKey;
+//
+//    private final AtomicBoolean isCancelled = new AtomicBoolean(false);
 
     public BuilderBlockCreator(
             final Address coinbase,
@@ -47,9 +47,6 @@ public abstract class BuilderBlockCreator extends AbstractBlockCreator {
         this.api = builderApi;
     }
 
-    private Block requestBlock(final long slot, final Hash parentHash) {
-        this.api.getBlock(slot, parentHash);
-    }
 
     @Override
     public BlockCreationResult createBlock(final long timestamp) {
