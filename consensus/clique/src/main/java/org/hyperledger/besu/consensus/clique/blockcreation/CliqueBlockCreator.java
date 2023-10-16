@@ -173,7 +173,7 @@ public class CliqueBlockCreator extends AbstractBlockCreator {
         try {
             long slot = this.parentHeader.getNumber() + 1;
             BlockBody blockBody = this.builderApi.get().fetchBlockBody(
-                    this.parentHeader.getNumber() + 1, this.parentHeader.getHash());
+                    slot, this.parentHeader.getHash());
             long timestamp = System.currentTimeMillis();
             BlockCreationResult result = createBlock(
                     Optional.of(blockBody.getTransactions()), Optional.empty(), timestamp);

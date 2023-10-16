@@ -12,8 +12,6 @@ import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.ethereum.core.Transaction;
 
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.List;
 
 public class ExecutableDataDeserializer extends StdDeserializer<ExecutableData> {
 
@@ -26,7 +24,7 @@ public class ExecutableDataDeserializer extends StdDeserializer<ExecutableData> 
     }
 
     @Override
-    public ExecutableData deserialize(final JsonParser parser, final DeserializationContext deserializer) throws java.io.IOException{
+    public ExecutableData deserialize(final JsonParser parser, final DeserializationContext deserializer) throws java.io.IOException {
         ExecutableData executableData = new ExecutableData();
         ObjectCodec codec = parser.getCodec();
         JsonNode node = codec.readTree(parser);
@@ -46,13 +44,9 @@ public class ExecutableDataDeserializer extends StdDeserializer<ExecutableData> 
         executableData.blockHash = Hash.fromHexString(node.get("blockHash").asText());
 
         Transaction[] transactions = new Transaction[node.get("transactions").size()];
-
-
         for (int i = 0; i < node.get("transactions").size(); i++) {
-
             transactions[i] = Transaction.readFrom(Bytes.fromHexString(node.get("transactions").get(i).asText()));
         }
-
         executableData.transactions = transactions;
         return executableData;
     }
