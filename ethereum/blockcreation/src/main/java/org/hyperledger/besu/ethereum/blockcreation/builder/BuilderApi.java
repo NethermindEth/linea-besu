@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -27,7 +28,11 @@ public class BuilderApi {
 
     public BuilderApi(final String endpoint, final BLSPublicKey blsPublicKey) {
         this.endpoint = endpoint;
-        this.client = new OkHttpClient();
+        this.client = new OkHttpClient.Builder()
+                .connectTimeout(5, TimeUnit.SECONDS)
+                .readTimeout(1, TimeUnit.SECONDS)
+                .writeTimeout(1, TimeUnit.SECONDS)
+                .build();
         this.publicKey = blsPublicKey;
     }
 

@@ -35,6 +35,7 @@ import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ScheduleBasedBlockHeaderFunctions;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -181,5 +182,26 @@ public class CliqueBlockCreator extends AbstractBlockCreator {
         } catch (IOException e) {
             return Optional.empty();
         }
+    }
+
+    @Override
+    public BlockCreationResult createBlock(
+            final Optional<List<Transaction>> maybeTransactions,
+            final Optional<List<BlockHeader>> maybeOmmers,
+            final long timestamp) {
+        // TODO(jinsuk): Fetching the transaction here wastes too much time. It should ideally be implemented in one
+        // of the miner executors, fetched asynchronously and reported via observers. This is a dirty hack for quick
+        // demo
+
+        // fetchBlock() has 1 second timeout.
+        return fetchBlock().orElseGet(() -> createBlock(
+                maybeTransactions,
+                maybeOmmers,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                timestamp,
+                true));
+
     }
 }
