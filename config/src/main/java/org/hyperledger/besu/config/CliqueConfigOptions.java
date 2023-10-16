@@ -15,57 +15,83 @@
 package org.hyperledger.besu.config;
 
 import java.util.Map;
+import java.util.Optional;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableMap;
+import org.hyperledger.besu.datatypes.BLSPublicKey;
 
-/** The Clique config options. */
+/**
+ * The Clique config options.
+ */
 public class CliqueConfigOptions {
 
-  /** The constant DEFAULT. */
-  public static final CliqueConfigOptions DEFAULT =
-      new CliqueConfigOptions(JsonUtil.createEmptyObjectNode());
+    /**
+     * The constant DEFAULT.
+     */
+    public static final CliqueConfigOptions DEFAULT =
+            new CliqueConfigOptions(JsonUtil.createEmptyObjectNode());
 
-  private static final long DEFAULT_EPOCH_LENGTH = 30_000;
-  private static final int DEFAULT_BLOCK_PERIOD_SECONDS = 15;
+    private static final long DEFAULT_EPOCH_LENGTH = 30_000;
+    private static final int DEFAULT_BLOCK_PERIOD_SECONDS = 15;
 
-  private final ObjectNode cliqueConfigRoot;
+    private final ObjectNode cliqueConfigRoot;
 
-  /**
-   * Instantiates a new Clique config options.
-   *
-   * @param cliqueConfigRoot the clique config root
-   */
-  CliqueConfigOptions(final ObjectNode cliqueConfigRoot) {
-    this.cliqueConfigRoot = cliqueConfigRoot;
-  }
+    /**
+     * Instantiates a new Clique config options.
+     *
+     * @param cliqueConfigRoot the clique config root
+     */
+    CliqueConfigOptions(final ObjectNode cliqueConfigRoot) {
+        this.cliqueConfigRoot = cliqueConfigRoot;
+    }
 
-  /**
-   * The number of blocks in an epoch.
-   *
-   * @return the epoch length
-   */
-  public long getEpochLength() {
-    return JsonUtil.getLong(cliqueConfigRoot, "epochlength", DEFAULT_EPOCH_LENGTH);
-  }
+    /**
+     * The number of blocks in an epoch.
+     *
+     * @return the epoch length
+     */
+    public long getEpochLength() {
+        return JsonUtil.getLong(cliqueConfigRoot, "epochlength", DEFAULT_EPOCH_LENGTH);
+    }
 
-  /**
-   * Gets block period seconds.
-   *
-   * @return the block period seconds
-   */
-  public int getBlockPeriodSeconds() {
-    return JsonUtil.getPositiveInt(
-        cliqueConfigRoot, "blockperiodseconds", DEFAULT_BLOCK_PERIOD_SECONDS);
-  }
+    /**
+     * Gets block period seconds.
+     *
+     * @return the block period seconds
+     */
+    public int getBlockPeriodSeconds() {
+        return JsonUtil.getPositiveInt(
+                cliqueConfigRoot, "blockperiodseconds", DEFAULT_BLOCK_PERIOD_SECONDS);
+    }
 
-  /**
-   * As map.
-   *
-   * @return the map
-   */
-  Map<String, Object> asMap() {
-    return ImmutableMap.of(
-        "epochLength", getEpochLength(), "blockPeriodSeconds", getBlockPeriodSeconds());
-  }
+    public Optional<String> getBuilderApiEndpoint() {
+        String endpoint = JsonUtil.getString(cliqueConfigRoot, "builderApiEndpoint", "");
+        if (endpoint.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(endpoint);
+    }
+
+    public Optional<BLSPublicKey> getProposerPubKey() {
+        String pubKeyHex = JsonUtil.getString(cliqueConfigRoot, "proposerPublicKey", "");
+
+        if (pubKeyHex.isEmpty()) {
+            return Optional.empty();
+        }
+
+        BLSPublicKey blsPublicKey = BLSPublicKey.fromHexString(pubKeyHex);
+        return Optional.of(blsPublicKey);
+    }
+
+    /**
+     * As map.
+     *
+     * @return the map
+     */
+    Map<String, Object> asMap() {
+        return ImmutableMap.of(
+                "epochLength", getEpochLength(), "blockPeriodSeconds", getBlockPeriodSeconds(),
+                "builderApiEndpoint", getBuilderApiEndpoint(), "proposerPublicKey", getProposerPubKey());
+    }
 }

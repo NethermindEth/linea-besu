@@ -146,7 +146,7 @@ public class CliqueBlockCreatorTest {
             Wei.ZERO,
             0.8,
             blockchain.getChainHeadHeader(),
-            epochManager);
+            epochManager, Optional.empty());
 
     final Block createdBlock = blockCreator.createBlock(5L).getBlock();
 
@@ -175,7 +175,7 @@ public class CliqueBlockCreatorTest {
             Wei.ZERO,
             0.8,
             blockchain.getChainHeadHeader(),
-            epochManager);
+            epochManager, Optional.empty());
 
     final Block createdBlock = blockCreator.createBlock(0L).getBlock();
     assertThat(createdBlock.getHeader().getNonce()).isEqualTo(CliqueBlockInterface.ADD_NONCE);
@@ -209,7 +209,7 @@ public class CliqueBlockCreatorTest {
             Wei.ZERO,
             0.8,
             blockchain.getChainHeadHeader(),
-            epochManager);
+            epochManager, Optional.empty());
 
     final Block createdBlock = blockCreator.createBlock(0L).getBlock();
     assertThat(createdBlock.getHeader().getNonce()).isEqualTo(CliqueBlockInterface.DROP_NONCE);

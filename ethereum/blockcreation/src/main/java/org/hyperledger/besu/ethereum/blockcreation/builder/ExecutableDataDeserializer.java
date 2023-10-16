@@ -9,6 +9,7 @@ import org.apache.tuweni.bytes.Bytes;
 import org.apache.tuweni.units.bigints.UInt64;
 import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.datatypes.Hash;
+import org.hyperledger.besu.ethereum.core.Transaction;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -44,10 +45,12 @@ public class ExecutableDataDeserializer extends StdDeserializer<ExecutableData> 
         executableData.baseFeePerGas = new BigInteger(node.get("baseFeePerGas").asText());
         executableData.blockHash = Hash.fromHexString(node.get("blockHash").asText());
 
-        Bytes[] transactions = new Bytes[node.get("transactions").size()];
+        Transaction[] transactions = new Transaction[node.get("transactions").size()];
+
 
         for (int i = 0; i < node.get("transactions").size(); i++) {
-            transactions[i] = Bytes.fromHexString(node.get("transactions").get(i).asText());
+
+            transactions[i] = Transaction.readFrom(Bytes.fromHexString(node.get("transactions").get(i).asText()));
         }
 
         executableData.transactions = transactions;
