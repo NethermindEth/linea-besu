@@ -29,7 +29,13 @@ import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.blockcreation.AbstractBlockCreator;
 import org.hyperledger.besu.ethereum.blockcreation.builder.BuilderApi;
-import org.hyperledger.besu.ethereum.core.*;
+import org.hyperledger.besu.ethereum.core.BlockBody;
+import org.hyperledger.besu.ethereum.core.BlockHeader;
+import org.hyperledger.besu.ethereum.core.BlockHeaderBuilder;
+import org.hyperledger.besu.ethereum.core.BlockHeaderFunctions;
+import org.hyperledger.besu.ethereum.core.SealableBlockHeader;
+import org.hyperledger.besu.ethereum.core.Transaction;
+import org.hyperledger.besu.ethereum.core.Util;
 import org.hyperledger.besu.ethereum.eth.transactions.TransactionPool;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ScheduleBasedBlockHeaderFunctions;
@@ -39,169 +45,169 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-/**
- * The Clique block creator.
- */
+/** The Clique block creator. */
 public class CliqueBlockCreator extends AbstractBlockCreator {
 
-    private final NodeKey nodeKey;
-    private final EpochManager epochManager;
+  private final NodeKey nodeKey;
+  private final EpochManager epochManager;
 
-    private final Optional<BuilderApi> builderApi;
+  private final Optional<BuilderApi> builderApi;
 
-    /**
-     * Instantiates a new Clique block creator.
-     *
-     * @param coinbase               the coinbase
-     * @param targetGasLimitSupplier the target gas limit supplier
-     * @param extraDataCalculator    the extra data calculator
-     * @param transactionPool        the pending transactions
-     * @param protocolContext        the protocol context
-     * @param protocolSchedule       the protocol schedule
-     * @param nodeKey                the node key
-     * @param minTransactionGasPrice the min transaction gas price
-     * @param minBlockOccupancyRatio the min block occupancy ratio
-     * @param parentHeader           the parent header
-     * @param epochManager           the epoch manager
-     */
-    public CliqueBlockCreator(
-            final Address coinbase,
-            final Supplier<Optional<Long>> targetGasLimitSupplier,
-            final ExtraDataCalculator extraDataCalculator,
-            final TransactionPool transactionPool,
-            final ProtocolContext protocolContext,
-            final ProtocolSchedule protocolSchedule,
-            final NodeKey nodeKey,
-            final Wei minTransactionGasPrice,
-            final Double minBlockOccupancyRatio,
-            final BlockHeader parentHeader,
-            final EpochManager epochManager,
-            final Optional<BuilderApi> builderApi
-    ) {
-        super(
-                coinbase,
-                __ -> Util.publicKeyToAddress(nodeKey.getPublicKey()),
-                targetGasLimitSupplier,
-                extraDataCalculator,
-                transactionPool,
-                protocolContext,
-                protocolSchedule,
-                minTransactionGasPrice,
-                minBlockOccupancyRatio,
-                parentHeader,
-                Optional.empty());
-        this.nodeKey = nodeKey;
-        this.epochManager = epochManager;
-        this.builderApi = builderApi;
+  /**
+   * Instantiates a new Clique block creator.
+   *
+   * @param coinbase the coinbase
+   * @param targetGasLimitSupplier the target gas limit supplier
+   * @param extraDataCalculator the extra data calculator
+   * @param transactionPool the pending transactions
+   * @param protocolContext the protocol context
+   * @param protocolSchedule the protocol schedule
+   * @param nodeKey the node key
+   * @param minTransactionGasPrice the min transaction gas price
+   * @param minBlockOccupancyRatio the min block occupancy ratio
+   * @param parentHeader the parent header
+   * @param epochManager the epoch manager
+   */
+  public CliqueBlockCreator(
+      final Address coinbase,
+      final Supplier<Optional<Long>> targetGasLimitSupplier,
+      final ExtraDataCalculator extraDataCalculator,
+      final TransactionPool transactionPool,
+      final ProtocolContext protocolContext,
+      final ProtocolSchedule protocolSchedule,
+      final NodeKey nodeKey,
+      final Wei minTransactionGasPrice,
+      final Double minBlockOccupancyRatio,
+      final BlockHeader parentHeader,
+      final EpochManager epochManager,
+      final Optional<BuilderApi> builderApi) {
+    super(
+        coinbase,
+        __ -> Util.publicKeyToAddress(nodeKey.getPublicKey()),
+        targetGasLimitSupplier,
+        extraDataCalculator,
+        transactionPool,
+        protocolContext,
+        protocolSchedule,
+        minTransactionGasPrice,
+        minBlockOccupancyRatio,
+        parentHeader,
+        Optional.empty());
+    this.nodeKey = nodeKey;
+    this.epochManager = epochManager;
+    this.builderApi = builderApi;
+  }
+
+  /**
+   * Responsible for signing (hash of) the block (including MixHash and Nonce), and then injecting
+   * the seal into the extraData. This is called after a suitable set of transactions have been
+   * identified, and all resulting hashes have been inserted into the passed-in SealableBlockHeader.
+   *
+   * @param sealableBlockHeader A block header containing StateRoots, TransactionHashes etc.
+   * @return The blockhead which is to be added to the block being proposed.
+   */
+  @Override
+  protected BlockHeader createFinalBlockHeader(final SealableBlockHeader sealableBlockHeader) {
+    final BlockHeaderFunctions blockHeaderFunctions =
+        ScheduleBasedBlockHeaderFunctions.create(protocolSchedule);
+
+    final BlockHeaderBuilder builder =
+        BlockHeaderBuilder.create()
+            .populateFrom(sealableBlockHeader)
+            .mixHash(Hash.ZERO)
+            .blockHeaderFunctions(blockHeaderFunctions);
+
+    final Optional<ValidatorVote> vote = determineCliqueVote(sealableBlockHeader);
+    final BlockHeaderBuilder builderIncludingProposedVotes =
+        CliqueBlockInterface.createHeaderBuilderWithVoteHeaders(builder, vote);
+    final CliqueExtraData sealedExtraData =
+        constructSignedExtraData(builderIncludingProposedVotes.buildBlockHeader());
+
+    // Replace the extraData in the BlockHeaderBuilder, and return header.
+    return builderIncludingProposedVotes.extraData(sealedExtraData.encode()).buildBlockHeader();
+  }
+
+  private Optional<ValidatorVote> determineCliqueVote(
+      final SealableBlockHeader sealableBlockHeader) {
+    if (epochManager.isEpochBlock(sealableBlockHeader.getNumber())) {
+      return Optional.empty();
+    } else {
+      final CliqueContext cliqueContext = protocolContext.getConsensusContext(CliqueContext.class);
+      checkState(
+          cliqueContext.getValidatorProvider().getVoteProviderAtHead().isPresent(),
+          "Clique requires a vote provider");
+      return cliqueContext
+          .getValidatorProvider()
+          .getVoteProviderAtHead()
+          .get()
+          .getVoteAfterBlock(parentHeader, Util.publicKeyToAddress(nodeKey.getPublicKey()));
+    }
+  }
+
+  /**
+   * Produces a CliqueExtraData object with a populated proposerSeal. The signature in the block is
+   * generated from the Hash of the header (minus proposer and committer seals) and the nodeKeys.
+   *
+   * @param headerToSign An almost fully populated header (proposer and committer seals are empty)
+   * @return Extra data containing the same vanity data and validators as extraData, however
+   *     proposerSeal will also be populated.
+   */
+  private CliqueExtraData constructSignedExtraData(final BlockHeader headerToSign) {
+    final CliqueExtraData extraData = CliqueExtraData.decode(headerToSign);
+    final Hash hashToSign =
+        CliqueBlockHashing.calculateDataHashForProposerSeal(headerToSign, extraData);
+    return new CliqueExtraData(
+        extraData.getVanityData(),
+        nodeKey.sign(hashToSign),
+        extraData.getValidators(),
+        headerToSign);
+  }
+
+  /**
+   * Requests to builder api endpoint to fetch block body, and creates block from the transactions.
+   *
+   * @return Optional BlockCreationResult containing the result from builders, else empty for any
+   *     failures.
+   */
+  public Optional<BlockCreationResult> fetchBlock() {
+    if (builderApi.isEmpty()) {
+      return Optional.empty();
     }
 
-    /**
-     * Responsible for signing (hash of) the block (including MixHash and Nonce), and then injecting
-     * the seal into the extraData. This is called after a suitable set of transactions have been
-     * identified, and all resulting hashes have been inserted into the passed-in SealableBlockHeader.
-     *
-     * @param sealableBlockHeader A block header containing StateRoots, TransactionHashes etc.
-     * @return The blockhead which is to be added to the block being proposed.
-     */
-    @Override
-    protected BlockHeader createFinalBlockHeader(final SealableBlockHeader sealableBlockHeader) {
-        final BlockHeaderFunctions blockHeaderFunctions =
-                ScheduleBasedBlockHeaderFunctions.create(protocolSchedule);
-
-        final BlockHeaderBuilder builder =
-                BlockHeaderBuilder.create()
-                        .populateFrom(sealableBlockHeader)
-                        .mixHash(Hash.ZERO)
-                        .blockHeaderFunctions(blockHeaderFunctions);
-
-        final Optional<ValidatorVote> vote = determineCliqueVote(sealableBlockHeader);
-        final BlockHeaderBuilder builderIncludingProposedVotes =
-                CliqueBlockInterface.createHeaderBuilderWithVoteHeaders(builder, vote);
-        final CliqueExtraData sealedExtraData =
-                constructSignedExtraData(builderIncludingProposedVotes.buildBlockHeader());
-
-        // Replace the extraData in the BlockHeaderBuilder, and return header.
-        return builderIncludingProposedVotes.extraData(sealedExtraData.encode()).buildBlockHeader();
+    try {
+      long slot = this.parentHeader.getNumber() + 1;
+      BlockBody blockBody = this.builderApi.get().fetchBlockBody(slot, this.parentHeader.getHash());
+      long timestamp = System.currentTimeMillis();
+      BlockCreationResult result =
+          createBlock(Optional.of(blockBody.getTransactions()), Optional.empty(), timestamp);
+      return Optional.of(result);
+    } catch (IOException e) {
+      return Optional.empty();
     }
+  }
 
-    private Optional<ValidatorVote> determineCliqueVote(
-            final SealableBlockHeader sealableBlockHeader) {
-        if (epochManager.isEpochBlock(sealableBlockHeader.getNumber())) {
-            return Optional.empty();
-        } else {
-            final CliqueContext cliqueContext = protocolContext.getConsensusContext(CliqueContext.class);
-            checkState(
-                    cliqueContext.getValidatorProvider().getVoteProviderAtHead().isPresent(),
-                    "Clique requires a vote provider");
-            return cliqueContext
-                    .getValidatorProvider()
-                    .getVoteProviderAtHead()
-                    .get()
-                    .getVoteAfterBlock(parentHeader, Util.publicKeyToAddress(nodeKey.getPublicKey()));
-        }
-    }
+  @Override
+  public BlockCreationResult createBlock(
+      final Optional<List<Transaction>> maybeTransactions,
+      final Optional<List<BlockHeader>> maybeOmmers,
+      final long timestamp) {
+    // TODO(jinsuk): Fetching the transaction here wastes too much time. It should ideally be
+    // implemented in one
+    // of the miner executors, fetched asynchronously and reported via observers. This is a dirty
+    // hack for quick
+    // demo
 
-    /**
-     * Produces a CliqueExtraData object with a populated proposerSeal. The signature in the block is
-     * generated from the Hash of the header (minus proposer and committer seals) and the nodeKeys.
-     *
-     * @param headerToSign An almost fully populated header (proposer and committer seals are empty)
-     * @return Extra data containing the same vanity data and validators as extraData, however
-     * proposerSeal will also be populated.
-     */
-    private CliqueExtraData constructSignedExtraData(final BlockHeader headerToSign) {
-        final CliqueExtraData extraData = CliqueExtraData.decode(headerToSign);
-        final Hash hashToSign =
-                CliqueBlockHashing.calculateDataHashForProposerSeal(headerToSign, extraData);
-        return new CliqueExtraData(
-                extraData.getVanityData(),
-                nodeKey.sign(hashToSign),
-                extraData.getValidators(),
-                headerToSign);
-    }
-
-
-    /**
-     * Requests to builder api endpoint to fetch block body, and creates block from the transactions.
-     *
-     * @return Optional BlockCreationResult containing the result from builders, else empty for any failures.
-     */
-    public Optional<BlockCreationResult> fetchBlock() {
-        if (builderApi.isEmpty()) {
-            return Optional.empty();
-        }
-
-        try {
-            long slot = this.parentHeader.getNumber() + 1;
-            BlockBody blockBody = this.builderApi.get().fetchBlockBody(
-                    slot, this.parentHeader.getHash());
-            long timestamp = System.currentTimeMillis();
-            BlockCreationResult result = createBlock(
-                    Optional.of(blockBody.getTransactions()), Optional.empty(), timestamp);
-            return Optional.of(result);
-        } catch (IOException e) {
-            return Optional.empty();
-        }
-    }
-
-    @Override
-    public BlockCreationResult createBlock(
-            final Optional<List<Transaction>> maybeTransactions,
-            final Optional<List<BlockHeader>> maybeOmmers,
-            final long timestamp) {
-        // TODO(jinsuk): Fetching the transaction here wastes too much time. It should ideally be implemented in one
-        // of the miner executors, fetched asynchronously and reported via observers. This is a dirty hack for quick
-        // demo
-
-        // fetchBlock() has max 1 second timeout.
-        return fetchBlock().orElseGet(() -> createBlock(
-                maybeTransactions,
-                maybeOmmers,
-                Optional.empty(),
-                Optional.empty(),
-                Optional.empty(),
-                timestamp,
-                true));
-
-    }
+    // fetchBlock() has max 1 second timeout.
+    return fetchBlock()
+        .orElseGet(
+            () ->
+                createBlock(
+                    maybeTransactions,
+                    maybeOmmers,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    timestamp,
+                    true));
+  }
 }

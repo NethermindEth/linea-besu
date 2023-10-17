@@ -43,125 +43,126 @@ import org.hyperledger.besu.ethereum.eth.transactions.TransactionPool;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
 
+import java.util.Optional;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Optional;
-
-/**
- * The Clique consensus controller builder.
- */
+/** The Clique consensus controller builder. */
 public class CliqueBesuControllerBuilder extends BesuControllerBuilder {
 
-    private static final Logger LOG = LoggerFactory.getLogger(CliqueBesuControllerBuilder.class);
+  private static final Logger LOG = LoggerFactory.getLogger(CliqueBesuControllerBuilder.class);
 
-    private Address localAddress;
-    private EpochManager epochManager;
-    private long secondsBetweenBlocks;
-    private final BlockInterface blockInterface = new CliqueBlockInterface();
+  private Address localAddress;
+  private EpochManager epochManager;
+  private long secondsBetweenBlocks;
+  private final BlockInterface blockInterface = new CliqueBlockInterface();
 
-    private Optional<BuilderApi> builderApi;
+  private Optional<BuilderApi> builderApi;
 
-    @Override
-    protected void prepForBuild() {
-        localAddress = Util.publicKeyToAddress(nodeKey.getPublicKey());
-        final CliqueConfigOptions cliqueConfig = configOptionsSupplier.get().getCliqueConfigOptions();
-        final long blocksPerEpoch = cliqueConfig.getEpochLength();
-        secondsBetweenBlocks = cliqueConfig.getBlockPeriodSeconds();
-        epochManager = new EpochManager(blocksPerEpoch);
-        if (cliqueConfig.getBuilderApiEndpoint().isPresent() && cliqueConfig.getProposerPubKey().isPresent()) {
-            this.builderApi = Optional.of(new BuilderApi(cliqueConfig.getBuilderApiEndpoint().get(),
-                    cliqueConfig.getProposerPubKey().get()));
-        } else {
-            this.builderApi = Optional.empty();
-        }
+  @Override
+  protected void prepForBuild() {
+    localAddress = Util.publicKeyToAddress(nodeKey.getPublicKey());
+    final CliqueConfigOptions cliqueConfig = configOptionsSupplier.get().getCliqueConfigOptions();
+    final long blocksPerEpoch = cliqueConfig.getEpochLength();
+    secondsBetweenBlocks = cliqueConfig.getBlockPeriodSeconds();
+    epochManager = new EpochManager(blocksPerEpoch);
+    if (cliqueConfig.getBuilderApiEndpoint().isPresent()
+        && cliqueConfig.getProposerPubKey().isPresent()) {
+      this.builderApi =
+          Optional.of(
+              new BuilderApi(
+                  cliqueConfig.getBuilderApiEndpoint().get(),
+                  cliqueConfig.getProposerPubKey().get()));
+    } else {
+      this.builderApi = Optional.empty();
     }
+  }
 
-    @Override
-    protected JsonRpcMethods createAdditionalJsonRpcMethodFactory(
-            final ProtocolContext protocolContext) {
-        return new CliqueJsonRpcMethods(protocolContext);
+  @Override
+  protected JsonRpcMethods createAdditionalJsonRpcMethodFactory(
+      final ProtocolContext protocolContext) {
+    return new CliqueJsonRpcMethods(protocolContext);
+  }
+
+  @Override
+  protected MiningCoordinator createMiningCoordinator(
+      final ProtocolSchedule protocolSchedule,
+      final ProtocolContext protocolContext,
+      final TransactionPool transactionPool,
+      final MiningParameters miningParameters,
+      final SyncState syncState,
+      final EthProtocolManager ethProtocolManager) {
+    final CliqueMinerExecutor miningExecutor =
+        new CliqueMinerExecutor(
+            protocolContext,
+            protocolSchedule,
+            transactionPool,
+            nodeKey,
+            miningParameters,
+            new CliqueBlockScheduler(
+                clock,
+                protocolContext.getConsensusContext(CliqueContext.class).getValidatorProvider(),
+                localAddress,
+                secondsBetweenBlocks),
+            epochManager,
+            builderApi);
+    final CliqueMiningCoordinator miningCoordinator =
+        new CliqueMiningCoordinator(
+            protocolContext.getBlockchain(),
+            miningExecutor,
+            syncState,
+            new CliqueMiningTracker(localAddress, protocolContext));
+    miningCoordinator.addMinedBlockObserver(ethProtocolManager);
+
+    // Clique mining is implicitly enabled.
+    miningCoordinator.enable();
+    return miningCoordinator;
+  }
+
+  @Override
+  protected ProtocolSchedule createProtocolSchedule() {
+    return CliqueProtocolSchedule.create(
+        configOptionsSupplier.get(),
+        nodeKey,
+        privacyParameters,
+        isRevertReasonEnabled,
+        evmConfiguration);
+  }
+
+  @Override
+  protected void validateContext(final ProtocolContext context) {
+    final BlockHeader genesisBlockHeader = context.getBlockchain().getGenesisBlock().getHeader();
+
+    if (blockInterface.validatorsInBlock(genesisBlockHeader).isEmpty()) {
+      LOG.warn("Genesis block contains no signers - chain will not progress.");
     }
+  }
 
-    @Override
-    protected MiningCoordinator createMiningCoordinator(
-            final ProtocolSchedule protocolSchedule,
-            final ProtocolContext protocolContext,
-            final TransactionPool transactionPool,
-            final MiningParameters miningParameters,
-            final SyncState syncState,
-            final EthProtocolManager ethProtocolManager) {
-        final CliqueMinerExecutor miningExecutor =
-                new CliqueMinerExecutor(
-                        protocolContext,
-                        protocolSchedule,
-                        transactionPool,
-                        nodeKey,
-                        miningParameters,
-                        new CliqueBlockScheduler(
-                                clock,
-                                protocolContext.getConsensusContext(CliqueContext.class).getValidatorProvider(),
-                                localAddress,
-                                secondsBetweenBlocks),
-                        epochManager,
-                        builderApi
-                );
-        final CliqueMiningCoordinator miningCoordinator =
-                new CliqueMiningCoordinator(
-                        protocolContext.getBlockchain(),
-                        miningExecutor,
-                        syncState,
-                        new CliqueMiningTracker(localAddress, protocolContext));
-        miningCoordinator.addMinedBlockObserver(ethProtocolManager);
+  @Override
+  protected PluginServiceFactory createAdditionalPluginServices(
+      final Blockchain blockchain, final ProtocolContext protocolContext) {
+    return new CliqueQueryPluginServiceFactory(blockchain, nodeKey);
+  }
 
-        // Clique mining is implicitly enabled.
-        miningCoordinator.enable();
-        return miningCoordinator;
-    }
+  @Override
+  protected CliqueContext createConsensusContext(
+      final Blockchain blockchain,
+      final WorldStateArchive worldStateArchive,
+      final ProtocolSchedule protocolSchedule) {
+    final CliqueContext cliqueContext =
+        new CliqueContext(
+            BlockValidatorProvider.nonForkingValidatorProvider(
+                blockchain, epochManager, blockInterface),
+            epochManager,
+            blockInterface);
+    installCliqueBlockChoiceRule(blockchain, cliqueContext);
+    return cliqueContext;
+  }
 
-    @Override
-    protected ProtocolSchedule createProtocolSchedule() {
-        return CliqueProtocolSchedule.create(
-                configOptionsSupplier.get(),
-                nodeKey,
-                privacyParameters,
-                isRevertReasonEnabled,
-                evmConfiguration);
-    }
-
-    @Override
-    protected void validateContext(final ProtocolContext context) {
-        final BlockHeader genesisBlockHeader = context.getBlockchain().getGenesisBlock().getHeader();
-
-        if (blockInterface.validatorsInBlock(genesisBlockHeader).isEmpty()) {
-            LOG.warn("Genesis block contains no signers - chain will not progress.");
-        }
-    }
-
-    @Override
-    protected PluginServiceFactory createAdditionalPluginServices(
-            final Blockchain blockchain, final ProtocolContext protocolContext) {
-        return new CliqueQueryPluginServiceFactory(blockchain, nodeKey);
-    }
-
-    @Override
-    protected CliqueContext createConsensusContext(
-            final Blockchain blockchain,
-            final WorldStateArchive worldStateArchive,
-            final ProtocolSchedule protocolSchedule) {
-        final CliqueContext cliqueContext =
-                new CliqueContext(
-                        BlockValidatorProvider.nonForkingValidatorProvider(
-                                blockchain, epochManager, blockInterface),
-                        epochManager,
-                        blockInterface);
-        installCliqueBlockChoiceRule(blockchain, cliqueContext);
-        return cliqueContext;
-    }
-
-    @Override
-    public MiningParameters getMiningParameterOverrides(final MiningParameters fromCli) {
-        // Clique mines by default, reflect that with in the mining parameters:
-        return new MiningParameters.Builder(fromCli).miningEnabled(true).build();
-    }
+  @Override
+  public MiningParameters getMiningParameterOverrides(final MiningParameters fromCli) {
+    // Clique mines by default, reflect that with in the mining parameters:
+    return new MiningParameters.Builder(fromCli).miningEnabled(true).build();
+  }
 }

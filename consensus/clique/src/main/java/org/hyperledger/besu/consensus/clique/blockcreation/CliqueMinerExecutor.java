@@ -43,103 +43,101 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import org.apache.tuweni.bytes.Bytes;
 
-/**
- * The Clique miner executor.
- */
+/** The Clique miner executor. */
 public class CliqueMinerExecutor extends AbstractMinerExecutor<CliqueBlockMiner> {
 
-    private final Address localAddress;
-    private final NodeKey nodeKey;
-    private final EpochManager epochManager;
+  private final Address localAddress;
+  private final NodeKey nodeKey;
+  private final EpochManager epochManager;
 
-    private final Optional<BuilderApi> builderApi;
+  private final Optional<BuilderApi> builderApi;
 
-    /**
-     * Instantiates a new Clique miner executor.
-     *
-     * @param protocolContext  the protocol context
-     * @param protocolSchedule the protocol schedule
-     * @param transactionPool  the pending transactions
-     * @param nodeKey          the node key
-     * @param miningParams     the mining params
-     * @param blockScheduler   the block scheduler
-     * @param epochManager     the epoch manager
-     */
-    public CliqueMinerExecutor(
-            final ProtocolContext protocolContext,
-            final ProtocolSchedule protocolSchedule,
-            final TransactionPool transactionPool,
-            final NodeKey nodeKey,
-            final MiningParameters miningParams,
-            final AbstractBlockScheduler blockScheduler,
-            final EpochManager epochManager,
-            final Optional<BuilderApi> builderApi
-    ) {
-        super(protocolContext, protocolSchedule, transactionPool, miningParams, blockScheduler);
-        this.nodeKey = nodeKey;
-        this.localAddress = Util.publicKeyToAddress(nodeKey.getPublicKey());
-        this.epochManager = epochManager;
-        this.builderApi = builderApi;
-    }
+  /**
+   * Instantiates a new Clique miner executor.
+   *
+   * @param protocolContext the protocol context
+   * @param protocolSchedule the protocol schedule
+   * @param transactionPool the pending transactions
+   * @param nodeKey the node key
+   * @param miningParams the mining params
+   * @param blockScheduler the block scheduler
+   * @param epochManager the epoch manager
+   */
+  public CliqueMinerExecutor(
+      final ProtocolContext protocolContext,
+      final ProtocolSchedule protocolSchedule,
+      final TransactionPool transactionPool,
+      final NodeKey nodeKey,
+      final MiningParameters miningParams,
+      final AbstractBlockScheduler blockScheduler,
+      final EpochManager epochManager,
+      final Optional<BuilderApi> builderApi) {
+    super(protocolContext, protocolSchedule, transactionPool, miningParams, blockScheduler);
+    this.nodeKey = nodeKey;
+    this.localAddress = Util.publicKeyToAddress(nodeKey.getPublicKey());
+    this.epochManager = epochManager;
+    this.builderApi = builderApi;
+  }
 
-    @Override
-    public CliqueBlockMiner createMiner(
-            final Subscribers<MinedBlockObserver> observers,
-            final Subscribers<PoWObserver> ethHashObservers,
-            final BlockHeader parentHeader) {
-        final Function<BlockHeader, CliqueBlockCreator> blockCreator =
-                (header) ->
-                        new CliqueBlockCreator(
-                                localAddress, // TOOD(tmm): This can be removed (used for voting not coinbase).
-                                () -> targetGasLimit.map(AtomicLong::longValue),
-                                this::calculateExtraData,
-                                transactionPool,
-                                protocolContext,
-                                protocolSchedule,
-                                nodeKey,
-                                minTransactionGasPrice,
-                                minBlockOccupancyRatio,
-                                header,
-                                epochManager, builderApi);
-
-        return new CliqueBlockMiner(
-                blockCreator,
-                protocolSchedule,
+  @Override
+  public CliqueBlockMiner createMiner(
+      final Subscribers<MinedBlockObserver> observers,
+      final Subscribers<PoWObserver> ethHashObservers,
+      final BlockHeader parentHeader) {
+    final Function<BlockHeader, CliqueBlockCreator> blockCreator =
+        (header) ->
+            new CliqueBlockCreator(
+                localAddress, // TOOD(tmm): This can be removed (used for voting not coinbase).
+                () -> targetGasLimit.map(AtomicLong::longValue),
+                this::calculateExtraData,
+                transactionPool,
                 protocolContext,
-                observers,
-                blockScheduler,
-                parentHeader,
-                localAddress);
+                protocolSchedule,
+                nodeKey,
+                minTransactionGasPrice,
+                minBlockOccupancyRatio,
+                header,
+                epochManager,
+                builderApi);
+
+    return new CliqueBlockMiner(
+        blockCreator,
+        protocolSchedule,
+        protocolContext,
+        observers,
+        blockScheduler,
+        parentHeader,
+        localAddress);
+  }
+
+  @Override
+  public Optional<Address> getCoinbase() {
+    return Optional.of(localAddress);
+  }
+
+  /**
+   * Calculate extra data bytes.
+   *
+   * @param parentHeader the parent header
+   * @return the bytes
+   */
+  @VisibleForTesting
+  Bytes calculateExtraData(final BlockHeader parentHeader) {
+    final List<Address> validators = Lists.newArrayList();
+
+    final Bytes vanityDataToInsert =
+        ConsensusHelpers.zeroLeftPad(extraData, CliqueExtraData.EXTRA_VANITY_LENGTH);
+    // Building ON TOP of canonical head, if the next block is epoch, include validators.
+    if (epochManager.isEpochBlock(parentHeader.getNumber() + 1)) {
+
+      final Collection<Address> storedValidators =
+          protocolContext
+              .getConsensusContext(CliqueContext.class)
+              .getValidatorProvider()
+              .getValidatorsAfterBlock(parentHeader);
+      validators.addAll(storedValidators);
     }
 
-    @Override
-    public Optional<Address> getCoinbase() {
-        return Optional.of(localAddress);
-    }
-
-    /**
-     * Calculate extra data bytes.
-     *
-     * @param parentHeader the parent header
-     * @return the bytes
-     */
-    @VisibleForTesting
-    Bytes calculateExtraData(final BlockHeader parentHeader) {
-        final List<Address> validators = Lists.newArrayList();
-
-        final Bytes vanityDataToInsert =
-                ConsensusHelpers.zeroLeftPad(extraData, CliqueExtraData.EXTRA_VANITY_LENGTH);
-        // Building ON TOP of canonical head, if the next block is epoch, include validators.
-        if (epochManager.isEpochBlock(parentHeader.getNumber() + 1)) {
-
-            final Collection<Address> storedValidators =
-                    protocolContext
-                            .getConsensusContext(CliqueContext.class)
-                            .getValidatorProvider()
-                            .getValidatorsAfterBlock(parentHeader);
-            validators.addAll(storedValidators);
-        }
-
-        return CliqueExtraData.encodeUnsealed(vanityDataToInsert, validators);
-    }
+    return CliqueExtraData.encodeUnsealed(vanityDataToInsert, validators);
+  }
 }
