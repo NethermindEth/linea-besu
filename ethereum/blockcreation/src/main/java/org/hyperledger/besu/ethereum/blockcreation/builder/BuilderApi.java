@@ -35,9 +35,9 @@ public class BuilderApi {
   private static final Logger LOG = LoggerFactory.getLogger(BuilderApi.class);
 
   OkHttpClient client;
-  String endpoint;
+  public String endpoint;
 
-  BLSPublicKey publicKey;
+  public BLSPublicKey publicKey;
 
   public BuilderApi(final String endpoint, final BLSPublicKey blsPublicKey) {
     this.endpoint = endpoint;

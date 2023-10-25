@@ -21,6 +21,8 @@ import java.util.Optional;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** The Clique config options. */
 public class CliqueConfigOptions {
@@ -33,6 +35,8 @@ public class CliqueConfigOptions {
   private static final int DEFAULT_BLOCK_PERIOD_SECONDS = 15;
 
   private final ObjectNode cliqueConfigRoot;
+
+  private static final Logger LOG = LoggerFactory.getLogger(CliqueConfigOptions.class);
 
   /**
    * Instantiates a new Clique config options.
@@ -63,7 +67,8 @@ public class CliqueConfigOptions {
   }
 
   public Optional<String> getBuilderApiEndpoint() {
-    String endpoint = JsonUtil.getString(cliqueConfigRoot, "builderApiEndpoint", "");
+    String endpoint = JsonUtil.getString(cliqueConfigRoot, "builderapiendpoint", "");
+    LOG.info("endpoint: {}", endpoint);
     if (endpoint.isEmpty()) {
       return Optional.empty();
     }
@@ -71,8 +76,8 @@ public class CliqueConfigOptions {
   }
 
   public Optional<BLSPublicKey> getProposerPubKey() {
-    String pubKeyHex = JsonUtil.getString(cliqueConfigRoot, "proposerPublicKey", "");
-
+    String pubKeyHex = JsonUtil.getString(cliqueConfigRoot, "proposerpubkey", "");
+    LOG.info("pubkey: {}", pubKeyHex);
     if (pubKeyHex.isEmpty()) {
       return Optional.empty();
     }

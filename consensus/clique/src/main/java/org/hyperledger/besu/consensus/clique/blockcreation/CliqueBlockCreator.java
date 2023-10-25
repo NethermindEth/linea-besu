@@ -45,6 +45,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /** The Clique block creator. */
 public class CliqueBlockCreator extends AbstractBlockCreator {
 
@@ -52,6 +55,8 @@ public class CliqueBlockCreator extends AbstractBlockCreator {
   private final EpochManager epochManager;
 
   private final Optional<BuilderApi> builderApi;
+
+  private static final Logger LOG = LoggerFactory.getLogger(CliqueBlockCreator.class);
 
   /**
    * Instantiates a new Clique block creator.
@@ -171,17 +176,22 @@ public class CliqueBlockCreator extends AbstractBlockCreator {
    */
   public Optional<BlockCreationResult> fetchBlock() {
     if (builderApi.isEmpty()) {
+      LOG.info("skipping fetchBlock because builderApi is not present");
       return Optional.empty();
     }
 
+    BuilderApi api = builderApi.get();
+
     try {
       long slot = this.parentHeader.getNumber() + 1;
-      BlockBody blockBody = this.builderApi.get().fetchBlockBody(slot, this.parentHeader.getHash());
+      LOG.info("Requesting block from {} for slot {}", api.endpoint, slot);
+      BlockBody blockBody = api.fetchBlockBody(slot, this.parentHeader.getHash());
       long timestamp = System.currentTimeMillis();
       BlockCreationResult result =
           createBlock(Optional.of(blockBody.getTransactions()), Optional.empty(), timestamp);
       return Optional.of(result);
     } catch (IOException e) {
+      LOG.info("Block request failed for slot: {}", e.getMessage());
       return Optional.empty();
     }
   }

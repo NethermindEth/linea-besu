@@ -69,12 +69,17 @@ public class CliqueBesuControllerBuilder extends BesuControllerBuilder {
     epochManager = new EpochManager(blocksPerEpoch);
     if (cliqueConfig.getBuilderApiEndpoint().isPresent()
         && cliqueConfig.getProposerPubKey().isPresent()) {
+      LOG.info(
+          "Connecting to builder API endpoint: {} with proposerPubKey: {}",
+          cliqueConfig.getBuilderApiEndpoint().get(),
+          cliqueConfig.getProposerPubKey().get());
       this.builderApi =
           Optional.of(
               new BuilderApi(
                   cliqueConfig.getBuilderApiEndpoint().get(),
                   cliqueConfig.getProposerPubKey().get()));
     } else {
+      LOG.info("Cannot connect to builder API endpoint");
       this.builderApi = Optional.empty();
     }
   }
