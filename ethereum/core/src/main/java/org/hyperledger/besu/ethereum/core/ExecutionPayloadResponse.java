@@ -16,5 +16,5 @@ package org.hyperledger.besu.ethereum.core;
 
 public class ExecutionPayloadResponse {
   public String version;
-  public ExecutableData bellatrix;
+  public ExecutableData data;
 }
