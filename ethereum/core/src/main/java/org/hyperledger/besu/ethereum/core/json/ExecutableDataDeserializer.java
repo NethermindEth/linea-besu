@@ -47,19 +47,19 @@ public class ExecutableDataDeserializer extends StdDeserializer<ExecutableData> 
     ObjectCodec codec = parser.getCodec();
     JsonNode node = codec.readTree(parser);
 
-    executableData.parentHash = Hash.fromHexString(node.get("parentHash").asText());
-    executableData.feeRecipient = Address.fromHexString(node.get("feeRecipient").asText());
-    executableData.stateRoot = Hash.fromHexString(node.get("stateRoot").asText());
-    executableData.receiptsRoot = Hash.fromHexString(node.get("receiptsRoot").asText());
-    executableData.logsBloom = Bytes.fromHexString(node.get("logsBloom").asText());
-    executableData.prevRandao = Hash.fromHexString(node.get("prevRandao").asText());
-    executableData.number = UInt64.valueOf(node.get("number").asLong());
-    executableData.gasLimit = UInt64.valueOf(node.get("gasLimit").asLong());
-    executableData.gasUsed = UInt64.valueOf(node.get("gasUsed").asLong());
+    executableData.parentHash = Hash.fromHexString(node.get("parent_hash").asText());
+    executableData.feeRecipient = Address.fromHexString(node.get("fee_recipient").asText());
+    executableData.stateRoot = Hash.fromHexString(node.get("state_root").asText());
+    executableData.receiptsRoot = Hash.fromHexString(node.get("receipts_root").asText());
+    executableData.logsBloom = Bytes.fromHexString(node.get("logs_bloom").asText());
+    executableData.prevRandao = Hash.fromHexString(node.get("prev_randao").asText());
+    executableData.number = UInt64.valueOf(node.get("block_number").asLong());
+    executableData.gasLimit = UInt64.valueOf(node.get("gas_limit").asLong());
+    executableData.gasUsed = UInt64.valueOf(node.get("gas_used").asLong());
     executableData.timestamp = UInt64.valueOf(node.get("timestamp").asLong());
-    executableData.extraData = Bytes.fromHexString(node.get("extraData").asText());
-    executableData.baseFeePerGas = new BigInteger(node.get("baseFeePerGas").asText());
-    executableData.blockHash = Hash.fromHexString(node.get("blockHash").asText());
+    executableData.extraData = Bytes.fromHexString(node.get("extra_data").asText());
+    executableData.baseFeePerGas = new BigInteger(node.get("base_fee_per_gas").asText());
+    executableData.blockHash = Hash.fromHexString(node.get("block_hash").asText());
 
     Transaction[] transactions = new Transaction[node.get("transactions").size()];
     for (int i = 0; i < node.get("transactions").size(); i++) {
