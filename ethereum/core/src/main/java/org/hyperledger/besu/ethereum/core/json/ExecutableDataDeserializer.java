@@ -61,10 +61,11 @@ public class ExecutableDataDeserializer extends StdDeserializer<ExecutableData> 
     executableData.baseFeePerGas = new BigInteger(node.get("base_fee_per_gas").asText());
     executableData.blockHash = Hash.fromHexString(node.get("block_hash").asText());
 
-    Transaction[] transactions = new Transaction[node.get("transactions").size()];
-    for (int i = 0; i < node.get("transactions").size(); i++) {
-      transactions[i] =
-          Transaction.readFrom(Bytes.fromHexString(node.get("transactions").get(i).asText()));
+    JsonNode transactionsList = node.get("transactions");
+    int numTxs = transactionsList.size();
+    Transaction[] transactions = new Transaction[numTxs];
+    for (int i = 0; i < numTxs; i++) {
+      transactions[i] = Transaction.readFrom(Bytes.fromHexString(transactionsList.get(i).asText()));
     }
     executableData.transactions = transactions;
     return executableData;
