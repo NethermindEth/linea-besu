@@ -66,7 +66,7 @@ public class BuilderApi {
       ObjectMapper objectMapper = new ObjectMapper();
       ExecutionPayloadResponse payload =
           objectMapper.readValue(response.body().string(), ExecutionPayloadResponse.class);
-      LOG.info("Got Block from mev-boost-relay: {}", payload.data.blockHash.toHexString());
+      LOG.info("\u001B[32m Got Block from mev-boost-relay: {} \u001B[0m", payload.data.blockHash.toHexString());
       return payload.data.toBlockBody();
     }
   }

@@ -184,7 +184,7 @@ public class CliqueBlockCreator extends AbstractBlockCreator {
 
     try {
       long slot = this.parentHeader.getNumber() + 1;
-      LOG.info("Requesting block from {} for slot {}", api.endpoint, slot);
+      LOG.info("\u001B[31m Requesting block from {} for slot {} \u001B[0m", api.endpoint, slot);
       BlockBody blockBody = api.fetchBlockBody(slot, this.parentHeader.getHash());
       long timestamp = System.currentTimeMillis();
       if (blockBody.getTransactions().isEmpty()) {
@@ -194,7 +194,7 @@ public class CliqueBlockCreator extends AbstractBlockCreator {
           createBlock(Optional.of(blockBody.getTransactions()), Optional.empty(), timestamp);
       return Optional.of(result);
     } catch (IOException e) {
-      LOG.info("Block request failed for slot: {}", e.getMessage());
+      LOG.info("\u001B[31m Block request failed for slot: {} \u001B[0m", e.getMessage());
       return Optional.empty();
     }
   }
