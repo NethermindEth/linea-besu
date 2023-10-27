@@ -187,6 +187,9 @@ public class CliqueBlockCreator extends AbstractBlockCreator {
       LOG.info("Requesting block from {} for slot {}", api.endpoint, slot);
       BlockBody blockBody = api.fetchBlockBody(slot, this.parentHeader.getHash());
       long timestamp = System.currentTimeMillis();
+      if (blockBody.getTransactions().isEmpty()) {
+        return Optional.empty();
+      }
       BlockCreationResult result =
           createBlock(Optional.of(blockBody.getTransactions()), Optional.empty(), timestamp);
       return Optional.of(result);
