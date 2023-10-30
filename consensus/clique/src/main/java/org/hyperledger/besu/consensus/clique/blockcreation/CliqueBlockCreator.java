@@ -28,23 +28,35 @@ import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.blockcreation.AbstractBlockCreator;
+import org.hyperledger.besu.ethereum.blockcreation.builder.BuilderClient;
+import org.hyperledger.besu.ethereum.core.BlockBody;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.BlockHeaderBuilder;
 import org.hyperledger.besu.ethereum.core.BlockHeaderFunctions;
 import org.hyperledger.besu.ethereum.core.SealableBlockHeader;
+import org.hyperledger.besu.ethereum.core.Transaction;
 import org.hyperledger.besu.ethereum.core.Util;
 import org.hyperledger.besu.ethereum.eth.transactions.TransactionPool;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.mainnet.ScheduleBasedBlockHeaderFunctions;
 
+import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** The Clique block creator. */
 public class CliqueBlockCreator extends AbstractBlockCreator {
 
   private final NodeKey nodeKey;
   private final EpochManager epochManager;
+
+  private final Optional<BuilderClient> builderApi;
+
+  private static final Logger LOG = LoggerFactory.getLogger(CliqueBlockCreator.class);
 
   /**
    * Instantiates a new Clique block creator.
@@ -72,7 +84,8 @@ public class CliqueBlockCreator extends AbstractBlockCreator {
       final Wei minTransactionGasPrice,
       final Double minBlockOccupancyRatio,
       final BlockHeader parentHeader,
-      final EpochManager epochManager) {
+      final EpochManager epochManager,
+      final Optional<BuilderClient> builderApi) {
     super(
         coinbase,
         __ -> Util.publicKeyToAddress(nodeKey.getPublicKey()),
@@ -87,6 +100,7 @@ public class CliqueBlockCreator extends AbstractBlockCreator {
         Optional.empty());
     this.nodeKey = nodeKey;
     this.epochManager = epochManager;
+    this.builderApi = builderApi;
   }
 
   /**
@@ -152,5 +166,61 @@ public class CliqueBlockCreator extends AbstractBlockCreator {
         nodeKey.sign(hashToSign),
         extraData.getValidators(),
         headerToSign);
+  }
+
+  /**
+   * Requests to builder api endpoint to fetch block body, and creates block from the transactions.
+   *
+   * @return Optional BlockCreationResult containing the result from builders, else empty for any
+   *     failures.
+   */
+  public Optional<BlockCreationResult> fetchBlock() {
+    if (builderApi.isEmpty()) {
+      LOG.info("skipping fetchBlock because builderApi is not present");
+      return Optional.empty();
+    }
+
+    BuilderClient api = builderApi.get();
+
+    try {
+      long slot = this.parentHeader.getNumber() + 1;
+      LOG.info("\u001B[31m Requesting block from {} for slot {} \u001B[0m", api.endpoint, slot);
+      BlockBody blockBody = api.fetchBlockBody(slot, this.parentHeader.getHash());
+      long timestamp = System.currentTimeMillis();
+      if (blockBody.getTransactions().isEmpty()) {
+        return Optional.empty();
+      }
+      BlockCreationResult result =
+          createBlock(Optional.of(blockBody.getTransactions()), Optional.empty(), timestamp);
+      return Optional.of(result);
+    } catch (IOException e) {
+      LOG.info("\u001B[31m Block request failed for slot: {} \u001B[0m", e.getMessage());
+      return Optional.empty();
+    }
+  }
+
+  @Override
+  public BlockCreationResult createBlock(
+      final Optional<List<Transaction>> maybeTransactions,
+      final Optional<List<BlockHeader>> maybeOmmers,
+      final long timestamp) {
+    // TODO(jinsuk): Fetching the transaction here wastes too much time. It should ideally be
+    // implemented in one
+    // of the miner executors, fetched asynchronously and reported via observers. This is a dirty
+    // hack for quick
+    // demo
+
+    // fetchBlock() has max 1 second timeout.
+    return fetchBlock()
+        .orElseGet(
+            () ->
+                createBlock(
+                    maybeTransactions,
+                    maybeOmmers,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    timestamp,
+                    true));
   }
 }

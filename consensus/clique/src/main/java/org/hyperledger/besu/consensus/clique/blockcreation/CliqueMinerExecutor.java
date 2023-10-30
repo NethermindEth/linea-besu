@@ -23,6 +23,7 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.blockcreation.AbstractBlockScheduler;
 import org.hyperledger.besu.ethereum.blockcreation.AbstractMinerExecutor;
+import org.hyperledger.besu.ethereum.blockcreation.builder.BuilderClient;
 import org.hyperledger.besu.ethereum.chain.MinedBlockObserver;
 import org.hyperledger.besu.ethereum.chain.PoWObserver;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
@@ -49,6 +50,8 @@ public class CliqueMinerExecutor extends AbstractMinerExecutor<CliqueBlockMiner>
   private final NodeKey nodeKey;
   private final EpochManager epochManager;
 
+  private final Optional<BuilderClient> builderApi;
+
   /**
    * Instantiates a new Clique miner executor.
    *
@@ -67,11 +70,13 @@ public class CliqueMinerExecutor extends AbstractMinerExecutor<CliqueBlockMiner>
       final NodeKey nodeKey,
       final MiningParameters miningParams,
       final AbstractBlockScheduler blockScheduler,
-      final EpochManager epochManager) {
+      final EpochManager epochManager,
+      final Optional<BuilderClient> builderApi) {
     super(protocolContext, protocolSchedule, transactionPool, miningParams, blockScheduler);
     this.nodeKey = nodeKey;
     this.localAddress = Util.publicKeyToAddress(nodeKey.getPublicKey());
     this.epochManager = epochManager;
+    this.builderApi = builderApi;
   }
 
   @Override
@@ -92,7 +97,8 @@ public class CliqueMinerExecutor extends AbstractMinerExecutor<CliqueBlockMiner>
                 minTransactionGasPrice,
                 minBlockOccupancyRatio,
                 header,
-                epochManager);
+                epochManager,
+                builderApi);
 
     return new CliqueBlockMiner(
         blockCreator,

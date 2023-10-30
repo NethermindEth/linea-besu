@@ -32,6 +32,7 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.methods.JsonRpcMethods;
 import org.hyperledger.besu.ethereum.blockcreation.MiningCoordinator;
+import org.hyperledger.besu.ethereum.blockcreation.builder.BuilderClient;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.MiningParameters;
@@ -41,6 +42,8 @@ import org.hyperledger.besu.ethereum.eth.sync.state.SyncState;
 import org.hyperledger.besu.ethereum.eth.transactions.TransactionPool;
 import org.hyperledger.besu.ethereum.mainnet.ProtocolSchedule;
 import org.hyperledger.besu.ethereum.worldstate.WorldStateArchive;
+
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,14 +58,30 @@ public class CliqueBesuControllerBuilder extends BesuControllerBuilder {
   private long secondsBetweenBlocks;
   private final BlockInterface blockInterface = new CliqueBlockInterface();
 
+  private Optional<BuilderClient> builderApi;
+
   @Override
   protected void prepForBuild() {
     localAddress = Util.publicKeyToAddress(nodeKey.getPublicKey());
     final CliqueConfigOptions cliqueConfig = configOptionsSupplier.get().getCliqueConfigOptions();
     final long blocksPerEpoch = cliqueConfig.getEpochLength();
     secondsBetweenBlocks = cliqueConfig.getBlockPeriodSeconds();
-
     epochManager = new EpochManager(blocksPerEpoch);
+    if (cliqueConfig.getBuilderApiEndpoint().isPresent()
+        && cliqueConfig.getProposerPubKey().isPresent()) {
+      LOG.info(
+          "Connecting to builder API endpoint: {} with proposerPubKey: {}",
+          cliqueConfig.getBuilderApiEndpoint().get(),
+          cliqueConfig.getProposerPubKey().get());
+      this.builderApi =
+          Optional.of(
+              new BuilderClient(
+                  cliqueConfig.getBuilderApiEndpoint().get(),
+                  cliqueConfig.getProposerPubKey().get()));
+    } else {
+      LOG.info("Builder API not configured, expected API endpoint and proposer BLS public key");
+      this.builderApi = Optional.empty();
+    }
   }
 
   @Override
@@ -91,7 +110,8 @@ public class CliqueBesuControllerBuilder extends BesuControllerBuilder {
                 protocolContext.getConsensusContext(CliqueContext.class).getValidatorProvider(),
                 localAddress,
                 secondsBetweenBlocks),
-            epochManager);
+            epochManager,
+            builderApi);
     final CliqueMiningCoordinator miningCoordinator =
         new CliqueMiningCoordinator(
             protocolContext.getBlockchain(),

@@ -14,10 +14,15 @@
  */
 package org.hyperledger.besu.config;
 
+import org.hyperledger.besu.datatypes.BLSPublicKey;
+
 import java.util.Map;
+import java.util.Optional;
 
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** The Clique config options. */
 public class CliqueConfigOptions {
@@ -30,6 +35,8 @@ public class CliqueConfigOptions {
   private static final int DEFAULT_BLOCK_PERIOD_SECONDS = 15;
 
   private final ObjectNode cliqueConfigRoot;
+
+  private static final Logger LOG = LoggerFactory.getLogger(CliqueConfigOptions.class);
 
   /**
    * Instantiates a new Clique config options.
@@ -59,6 +66,26 @@ public class CliqueConfigOptions {
         cliqueConfigRoot, "blockperiodseconds", DEFAULT_BLOCK_PERIOD_SECONDS);
   }
 
+  public Optional<String> getBuilderApiEndpoint() {
+    String endpoint = JsonUtil.getString(cliqueConfigRoot, "builderapiendpoint", "");
+    LOG.info("endpoint: {}", endpoint);
+    if (endpoint.isEmpty()) {
+      return Optional.empty();
+    }
+    return Optional.of(endpoint);
+  }
+
+  public Optional<BLSPublicKey> getProposerPubKey() {
+    String pubKeyHex = JsonUtil.getString(cliqueConfigRoot, "proposerpubkey", "");
+    LOG.info("pubkey: {}", pubKeyHex);
+    if (pubKeyHex.isEmpty()) {
+      return Optional.empty();
+    }
+
+    BLSPublicKey blsPublicKey = BLSPublicKey.fromHexString(pubKeyHex);
+    return Optional.of(blsPublicKey);
+  }
+
   /**
    * As map.
    *
@@ -66,6 +93,13 @@ public class CliqueConfigOptions {
    */
   Map<String, Object> asMap() {
     return ImmutableMap.of(
-        "epochLength", getEpochLength(), "blockPeriodSeconds", getBlockPeriodSeconds());
+        "epochLength",
+        getEpochLength(),
+        "blockPeriodSeconds",
+        getBlockPeriodSeconds(),
+        "builderApiEndpoint",
+        getBuilderApiEndpoint(),
+        "proposerPublicKey",
+        getProposerPubKey());
   }
 }
