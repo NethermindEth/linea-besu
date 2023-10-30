@@ -29,7 +29,7 @@ import java.util.function.Supplier;
 
 public abstract class BuilderBlockCreator extends AbstractBlockCreator {
 
-  protected BuilderApi api;
+  protected BuilderClient api;
 
   public BuilderBlockCreator(
       final Address coinbase,
@@ -43,7 +43,7 @@ public abstract class BuilderBlockCreator extends AbstractBlockCreator {
       final Double minBlockOccupancyRatio,
       final BlockHeader parentHeader,
       final Optional<Address> depositContractAddress,
-      final BuilderApi builderApi) {
+      final BuilderClient builderClient) {
     super(
         coinbase,
         miningBeneficiaryCalculator,
@@ -56,7 +56,7 @@ public abstract class BuilderBlockCreator extends AbstractBlockCreator {
         minBlockOccupancyRatio,
         parentHeader,
         depositContractAddress);
-    this.api = builderApi;
+    this.api = builderClient;
   }
 
   public Optional<BlockCreationResult> fetchBlock() {

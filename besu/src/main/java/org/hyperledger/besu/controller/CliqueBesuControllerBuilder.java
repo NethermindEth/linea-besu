@@ -32,7 +32,7 @@ import org.hyperledger.besu.datatypes.Address;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.api.jsonrpc.methods.JsonRpcMethods;
 import org.hyperledger.besu.ethereum.blockcreation.MiningCoordinator;
-import org.hyperledger.besu.ethereum.blockcreation.builder.BuilderApi;
+import org.hyperledger.besu.ethereum.blockcreation.builder.BuilderClient;
 import org.hyperledger.besu.ethereum.chain.Blockchain;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.MiningParameters;
@@ -58,7 +58,7 @@ public class CliqueBesuControllerBuilder extends BesuControllerBuilder {
   private long secondsBetweenBlocks;
   private final BlockInterface blockInterface = new CliqueBlockInterface();
 
-  private Optional<BuilderApi> builderApi;
+  private Optional<BuilderClient> builderApi;
 
   @Override
   protected void prepForBuild() {
@@ -75,11 +75,11 @@ public class CliqueBesuControllerBuilder extends BesuControllerBuilder {
           cliqueConfig.getProposerPubKey().get());
       this.builderApi =
           Optional.of(
-              new BuilderApi(
+              new BuilderClient(
                   cliqueConfig.getBuilderApiEndpoint().get(),
                   cliqueConfig.getProposerPubKey().get()));
     } else {
-      LOG.info("Cannot connect to builder API endpoint");
+      LOG.info("Builder API not configured, expected API endpoint and proposer BLS public key");
       this.builderApi = Optional.empty();
     }
   }

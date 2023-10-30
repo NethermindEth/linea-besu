@@ -28,7 +28,7 @@ import org.hyperledger.besu.datatypes.Hash;
 import org.hyperledger.besu.datatypes.Wei;
 import org.hyperledger.besu.ethereum.ProtocolContext;
 import org.hyperledger.besu.ethereum.blockcreation.AbstractBlockCreator;
-import org.hyperledger.besu.ethereum.blockcreation.builder.BuilderApi;
+import org.hyperledger.besu.ethereum.blockcreation.builder.BuilderClient;
 import org.hyperledger.besu.ethereum.core.BlockBody;
 import org.hyperledger.besu.ethereum.core.BlockHeader;
 import org.hyperledger.besu.ethereum.core.BlockHeaderBuilder;
@@ -54,7 +54,7 @@ public class CliqueBlockCreator extends AbstractBlockCreator {
   private final NodeKey nodeKey;
   private final EpochManager epochManager;
 
-  private final Optional<BuilderApi> builderApi;
+  private final Optional<BuilderClient> builderApi;
 
   private static final Logger LOG = LoggerFactory.getLogger(CliqueBlockCreator.class);
 
@@ -85,7 +85,7 @@ public class CliqueBlockCreator extends AbstractBlockCreator {
       final Double minBlockOccupancyRatio,
       final BlockHeader parentHeader,
       final EpochManager epochManager,
-      final Optional<BuilderApi> builderApi) {
+      final Optional<BuilderClient> builderApi) {
     super(
         coinbase,
         __ -> Util.publicKeyToAddress(nodeKey.getPublicKey()),
@@ -180,7 +180,7 @@ public class CliqueBlockCreator extends AbstractBlockCreator {
       return Optional.empty();
     }
 
-    BuilderApi api = builderApi.get();
+    BuilderClient api = builderApi.get();
 
     try {
       long slot = this.parentHeader.getNumber() + 1;

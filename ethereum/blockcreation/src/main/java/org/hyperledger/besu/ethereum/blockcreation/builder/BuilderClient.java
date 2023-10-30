@@ -30,16 +30,16 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Builder API service */
-public class BuilderApi {
+public class BuilderClient {
 
-  private static final Logger LOG = LoggerFactory.getLogger(BuilderApi.class);
+  private static final Logger LOG = LoggerFactory.getLogger(BuilderClient.class);
 
   OkHttpClient client;
   public String endpoint;
 
   public BLSPublicKey publicKey;
 
-  public BuilderApi(final String endpoint, final BLSPublicKey blsPublicKey) {
+  public BuilderClient(final String endpoint, final BLSPublicKey blsPublicKey) {
     this.endpoint = endpoint;
     this.client =
         new OkHttpClient.Builder()
